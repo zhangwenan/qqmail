@@ -1,0 +1,172 @@
+var encoder = require("./lib/c_login_2_10135.modified.js");
+var nodegrass = require("nodegrass");
+var fs = require("fs");
+
+var qqmail = {
+
+  qq: null,
+  pwd: null,
+  cookies: null,
+
+  g_action: "1-12-1444200532430",
+  g_t: "20131024001",
+  g_version: null,
+  g_jsversion: null,
+  g_appid: null,
+  g_lang: null,
+  g_style: null,
+  g_daid: null,
+  g_pt_ver_md5: null,
+  g_login_sig: null,
+
+  temp:{
+
+  },
+
+
+  /**
+   * 登陆成功后，将cookies暂存到本地文件
+   * 如：88306691cookies.txt
+   */
+  saveCookies: function(){
+
+  },
+
+
+
+  /**
+   * 登陆qq邮箱
+   * @param qq
+   * @param pwd
+   */
+  login: function(qq, pwd){
+    console.log('QQ:' + qq + ' 开始登陆 ...');
+    this.qq = qq;
+    this.pwd = pwd;
+
+    this.visitIndex();
+
+    //console.log('e:' + encoder.encode('Zhang*3o38', 'gsgsg', '$3321'))
+
+  },
+
+  /**
+   * 访问首页mail.qq.com，获取iframe登录框页面的地址
+   */
+  visitIndex: function(){
+    var self = this;
+
+    var iframe_url = "",
+      qq_mail_index_url = "https://mail.qq.com/",
+      headers_sent = {
+        "Host": "mail.qq.com"
+        /*"Accept-Encoding": "gzip, deflate"*/
+      },
+      iframe_reg = new RegExp("<iframe id=[\"']login_frame[\"'].*?src=['\"]([^'\"]+)['\"]></iframe>", "ig");
+
+    nodegrass.get(qq_mail_index_url, function(data, status, headers){
+
+
+      iframe_reg.exec(data);
+      if(RegExp.$1){
+        iframe_url = RegExp.$1;
+        console.log(iframe_url);
+        self.temp.iframe = iframe_url;
+      }
+
+      console.log(headers);
+
+      self.visitIframe();
+
+    }, headers_sent, "gbk");
+
+  },
+
+
+  /**
+   * 访问iframe页面
+   * @param iframe_url
+   */
+  visitIframe: function(){
+    var self = this;
+    var headers_sent = {
+      /*"Host": "ui.ptlogin2.qq.com",
+      "Accept-Encoding": "gzip, deflate",
+      "Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*!/!*;q=0.8",
+      "Content-Type": "",
+      "X-Powered-By": "",
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0"*/
+    }
+
+    console.log('开始访问' + self.temp.iframe);
+    nodegrass.get(self.temp.iframe, function(data, status, headers){
+
+      self.cookies = headers["set-cookie"];
+
+      var login_sig_reg = /pt_login_sig=([^;]+)/;
+
+      if(login_sig_reg.exec(self.cookies) != null){
+        self.g_login_sig = RegExp.$1;
+        //console.log('g_login_sig: ' + self.g_login_sig);
+      }
+
+      var json_reg = /pt\.ptui=(\{.*?\});\s*<\/script>/;
+      if(json_reg.exec(data) != null){
+
+        var ptui = eval('(' + RegExp.$1 + ')');
+
+        self.g_version = ptui.version;
+        self.g_jsversion = ptui.ptui_version;
+        self.g_appid = ptui.appid;
+        self.g_lang = ptui.lang;
+        self.g_style = ptui.style;
+        self.g_daid = ptui.daid;
+        self.g_pt_ver_md5 = ptui.pt_ver_md5;
+
+        /*console.log(self.g_version);
+        console.log(self.g_jsversion);
+        console.log(self.g_appid);
+        console.log(self.g_lang);
+        console.log(self.g_style);
+        console.log(self.g_daid);
+        console.log(self.g_pt_ver_md5);*/
+        self.checkVCode();
+      }
+      else{
+        console.log('what the fuck, ptui is not found.');
+      }
+
+
+    }, headers_sent, "utf8").on('error', function(e) {
+      console.log("Got error: " + e.message);
+    });
+  },
+
+  checkVCode: function(){
+    var self = this;
+    var url = "https://ssl.ptlogin2.qq.com/check?regmaster=&;pt_tea=1&amp;pt_vcode=0&uin=" + self.qq
+      + "&appid=" + self.g_appid + "&js_ver=" + self.g_jsversion + "&js_type=1&login_sig=" + self.g_login_sig
+      + "&u1=https%3A%2F%2Fmail.qq.com%2Fcgi-bin%2Flogin%3Fvt%3Dpassport%26vm%3Dwpt%26ft%3Dloginpage%26target%3D&r=" + Math.random();
+
+    var header_sent = {
+      "Host": "ssl.ptlogin2.qq.com",
+      "Referer": "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=" + self.g_appid + "&daid=" + self.g_daid
+      + "&s_url=https://mail.qq.com/cgi-bin/login?vt=passport%26vm=wpt%26ft=loginpage%26target=&style=" + self.g_style
+      + "&low_login=1&proxy_url=https://mail.qq.com/proxy.html&need_qr=0&;hide_border=1&border_radius=0"
+      + "&self_regurl=http://zc.qq.com/chs/index.html?type=1&app_id=11005?t=regist"
+      + "&pt_feedback_link=http://support.qq.com/discuss/350_1.shtml"
+      + "&css=https://res.mail.qq.com/zh_CN/htmledition/style/ptlogin_input24e6b9.css",
+      "cookie": self.cookies
+    }
+
+    nodegrass.get(url, function(data, status, headers){
+      console.log(data);
+      console.log(status);
+      console.log(headers);
+
+    }, header_sent, "utf8");
+  }
+};
+
+module.exports = qqmail;
