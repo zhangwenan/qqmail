@@ -4,7 +4,7 @@ var http = require('http');
 var https = require('https');
 var mkdirp = require('mkdirp');
 var fs = require("fs");
-
+var rest 	 = require('restler')
 
 var qqmail = {
 
@@ -30,6 +30,7 @@ var qqmail = {
     result: null
   },
   vcode_dir: 'vcode_img',
+  conf_file: 'qqmail.json',
 
 
   temp:{
@@ -271,7 +272,7 @@ var qqmail = {
       });
       res.on('end',function(){
         var resp = new Buffer(content,'binary');
-        
+
         fs.writeFile( process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg', resp, function(e) {
           if(typeof callback === 'function'){
             callback(e);
@@ -318,6 +319,35 @@ var qqmail = {
     var pathPattern = /\w+:\/\/([^\/]+)(\/.+)(\/$)?/i;
     var fullPath = url.match(pathPattern);
     return fullPath?fullPath[2]:'/';
+  },
+
+  /**
+   * * 云速打码 http 接口(上传)，node.js 示例代码
+   */
+  ysdm: function(){
+    var self = this;
+    var filename = self.qq + '.jpg';
+
+    var conf = JSON.parse(fs.readFileSync(process.cwd() + '/' + self.conf_file, "utf-8"));
+    rest.post('http://api.ysdm.net/create.json', {
+      multipart: true,
+      data: {
+        'username': conf.username,
+        'password': conf.password,
+        'typeid': conf.typeid,
+        'softid': conf.softid,
+        'softkey': conf.softkey,
+        'image': rest.file(filename, null, fs.statSync(filename).size, null, 'image/gif') // filename: 抓取回来的码证码文件
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:24.0) Gecko/20100101 Firefox/24.0',
+        'Content-Type' : 'application/x-www-form-urlencoded'
+      }
+    }).on('complete', function(data) {
+      var captcha = JSON.parse(data);
+      //console.log('Captcha Encoded.');
+      console.log(captcha);
+    });
   }
 
 };
