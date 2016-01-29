@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/zhangwenan/qqmail#readme",
   "dependencies": {
+    "mkdirp": "^0.5.1",
     "nodegrass": "0.0.3"
   }
 }

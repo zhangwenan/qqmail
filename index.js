@@ -2,7 +2,9 @@ var encoder = require("./lib/c_login_2_10135.modified.js");
 var nodegrass = require("nodegrass");
 var http = require('http');
 var https = require('https');
+var mkdirp = require('mkdirp');
 var fs = require("fs");
+
 
 var qqmail = {
 
@@ -27,6 +29,7 @@ var qqmail = {
   g_vcode: {
     result: null
   },
+  vcode_dir: 'vcode_img',
 
 
   temp:{
@@ -237,14 +240,16 @@ var qqmail = {
     var self = this;
     var url = 'https://ssl.captcha.qq.com/getimage?uin=' + self.qq + '&aid=' + self.g_appid + '&cap_cd=' + cap_cd + '&' + Math.random();
 
-
     var header_sent = {
       accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36',
       cookie: self.cookies
     };
 
-    console.log(JSON.stringify(header_sent));
+    mkdirp(process.cwd() + '/' + self.vcode_dir, function (err) {
+      if (err) console.error(err)
+      else console.log('pow!')
+    });
 
     var content = '';
     var protocol = self.getProtocol(url);
@@ -259,15 +264,15 @@ var qqmail = {
       res.setEncoding('binary');
       //var status = res.statusCode;
       var headers = res.headers;
-      console.log(headers);
+      self.cookies = self.cookies.concat(headers["set-cookie"]);
 
       res.on('data',function(chunk){
         content += chunk;
       });
       res.on('end',function(){
         var resp = new Buffer(content,'binary');
-        console.log('end');
-        fs.writeFile('/Users/wenlie/own/qqmail/yep.jpg', resp, function(e) {
+        
+        fs.writeFile( process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg', resp, function(e) {
           if(typeof callback === 'function'){
             callback(e);
           }
@@ -306,6 +311,7 @@ var qqmail = {
     }
     return domain[1];
   },
+
   //Parse the url,get the path
   //e.g. http://www.google.com/path/another -> /path/another
   getPath: function(url){
