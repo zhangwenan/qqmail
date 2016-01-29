@@ -1,5 +1,7 @@
 var encoder = require("./lib/c_login_2_10135.modified.js");
 var nodegrass = require("nodegrass");
+var http = require('http');
+var https = require('https');
 var fs = require("fs");
 
 var qqmail = {
@@ -181,7 +183,9 @@ var qqmail = {
     };
 
     nodegrass.get(url, function(data, status, headers){
+      // 执行ptui_checkVC
       eval('self.' + data);
+
       self.cookies = self.cookies.concat(headers["set-cookie"]);
 
       // 无需图形验证码
@@ -191,7 +195,7 @@ var qqmail = {
         self.postToLogin(ptvfsession, p);
       }
       else{
-
+        self.downloadVcode(self.g_vcode.result);
       }
     }, header_sent, "utf8");
   },
@@ -224,7 +228,92 @@ var qqmail = {
       }
     }
     return '';
+  },
+
+  /**
+   * 下载图形验证码
+   */
+  downloadVcode: function(cap_cd){
+    var self = this;
+    var url = 'https://ssl.captcha.qq.com/getimage?uin=' + self.qq + '&aid=' + self.g_appid + '&cap_cd=' + cap_cd + '&' + Math.random();
+
+
+    var header_sent = {
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.111 Safari/537.36',
+      cookie: self.cookies
+    };
+
+    console.log(JSON.stringify(header_sent));
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    console.log('download');
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: header_sent
+    }, function(res){
+      res.setEncoding('binary');
+      //var status = res.statusCode;
+      var headers = res.headers;
+      console.log(headers);
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        var resp = new Buffer(content,'binary');
+        console.log('end');
+        fs.writeFile('/Users/wenlie/own/qqmail/yep.jpg', resp, function(e) {
+          if(typeof callback === 'function'){
+            callback(e);
+          }
+
+        });
+      });
+    })
+
+  },
+
+  getProtocol: function(url){
+    return url.substring(0,url.indexOf(":")) === 'https' ? https : http;
+  },
+
+  getPort: function(url) {
+    var hostPattern = /\w+:\/\/([^\/]+)(\/)?/i;
+    var domain = url.match(hostPattern);
+
+    var pos = domain[1].indexOf(":");
+    if(pos !== -1) {
+      domain[1] = domain[1].substr(pos + 1);
+      return parseInt(domain[1]);
+    } else if(url.toLowerCase().substr(0, 5) === "https") return 443;
+    else return 80;
+  },
+
+  //Parse the url,get the host name
+  //e.g. http://www.google.com/path/another -> www.google.com
+  getHost: function(url){
+    var hostPattern = /\w+:\/\/([^\/]+)(\/)?/i;
+    var domain = url.match(hostPattern);
+
+    var pos = domain[1].indexOf(":");
+    if(pos !== -1) {
+      domain[1] = domain[1].substring(0, pos);
+    }
+    return domain[1];
+  },
+  //Parse the url,get the path
+  //e.g. http://www.google.com/path/another -> /path/another
+  getPath: function(url){
+    var pathPattern = /\w+:\/\/([^\/]+)(\/.+)(\/$)?/i;
+    var fullPath = url.match(pathPattern);
+    return fullPath?fullPath[2]:'/';
   }
+
 };
 
 module.exports = qqmail;
