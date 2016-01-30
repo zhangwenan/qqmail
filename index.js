@@ -59,6 +59,7 @@ var qqmail = {
     this.pwd = pwd;
 
     this.visitIndex();
+    //this.ysdm();
 
     //console.log('e:' + encoder.encode('Zhang*3o38', 'gsgsg', '$3321'))
 
@@ -274,9 +275,10 @@ var qqmail = {
         var resp = new Buffer(content,'binary');
 
         fs.writeFile( process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg', resp, function(e) {
-          if(typeof callback === 'function'){
+          self.ysdm();
+          /*if(typeof callback === 'function'){
             callback(e);
-          }
+          }*/
 
         });
       });
@@ -326,7 +328,7 @@ var qqmail = {
    */
   ysdm: function(){
     var self = this;
-    var filename = self.qq + '.jpg';
+    var filename = process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg';
 
     var conf = JSON.parse(fs.readFileSync(process.cwd() + '/' + self.conf_file, "utf-8"));
     rest.post('http://api.ysdm.net/create.json', {
@@ -346,7 +348,13 @@ var qqmail = {
     }).on('complete', function(data) {
       var captcha = JSON.parse(data);
       //console.log('Captcha Encoded.');
+      self.g_vcode.result = captcha.Result;
       console.log(captcha);
+
+      var ptvfsession = self.get_ptvfsession();
+      var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
+      self.postToLogin(ptvfsession, p);
+
     });
   }
 
