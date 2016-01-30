@@ -6,3 +6,4 @@
 var qqmail = require('./index');
 qqmail.login(88306691, 'hello1234');
 ```
+# 注意
