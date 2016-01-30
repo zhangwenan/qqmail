@@ -191,11 +191,31 @@ var qqmail = {
     };
 
     nodegrass.get(url, function(data, status, headers){
-      console.log(self.cookies);
-      console.log('check_sig:' + status); // 302
-      console.log('check_sig:' + JSON.stringify(headers));
+
+      if(status == 302){
+        self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+        self.visitFrame(headers['location']);
+      }
 
     }, header_sent, "utf8");
+  },
+
+  visitFrame: function(url){
+    var self = this;
+    var header_sent = {
+      "cookie": self.cookies
+    };
+
+    nodegrass.get(url, function(data, status, headers){
+      console.log(data);
+      console.log(status);
+
+      self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      console.log(JSON.stringify(headers));
+
+
+    }, header_sent, "gbk");
+
   },
 
   checkVCode: function(){
