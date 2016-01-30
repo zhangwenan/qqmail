@@ -37,6 +37,12 @@ var qqmail = {
 
   },
 
+  logged_obj: {
+    login_retcode: null,
+    login_redirect_url: null,
+    login_nick: null
+  },
+
 
   /**
    * 登陆成功后，将cookies暂存到本地文件
@@ -164,8 +170,31 @@ var qqmail = {
     };
 
     nodegrass.get(url, function(data, status, headers){
+      // 执行 ptuiCB
       console.log(data);
+      eval('self.' + data);
       self.cookies = self.cookies.concat(headers["set-cookie"]);
+
+      if(self.logged_obj.login_retcode == 0){
+        console.log(JSON.stringify(self.logged_obj));
+        self.checkSig(self.logged_obj.login_redirect_url);
+      }
+    }, header_sent, "utf8");
+  },
+
+  checkSig: function(url){
+    var self = this;
+
+    var header_sent = {
+      "Host": "ssl.ptlogin2.mail.qq.com",
+      "cookie": self.cookies
+    };
+
+    console.log(url);
+    nodegrass.get(url, function(data, status, headers){
+      console.log('check_sig:' + data);
+      console.log('check_sig:' + status); // 302
+      console.log('check_sig:' + JSON.stringify(headers));
 
     }, header_sent, "utf8");
   },
@@ -215,6 +244,14 @@ var qqmail = {
     self.g_pt_verifysession_v1 = d;
   },
 
+  ptuiCB: function(a, b, c, d, e, f){
+
+    this.logged_obj = {
+      login_retcode: a,
+      login_redirect_url: c,
+      login_nick: f
+    };
+  },
 
   get_ptvfsession: function(){
     var self = this;
