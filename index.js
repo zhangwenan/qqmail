@@ -209,7 +209,7 @@ var qqmail = {
       var headers = res.headers;
       console.log(status);
       console.log(JSON.stringify(headers));
-      //self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
 
 
@@ -227,64 +227,6 @@ var qqmail = {
       });
     });
 
-    // ---
-
-    /*console.log('Host is: ' + self.getHost(url));
-    var header_sent = {
-      "Host": "ssl.ptlogin2.mail.qq.com",
-      //"cookie": self.cookies,
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0",
-      "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*!/!*;q=0.8",
-      "Accept-Encoding":"gzip, deflate"
-    };*/
-
-    /*var content = '';
-    httpsFollow302.get({
-      host: self.getHost(url),
-      port:self.getPort(url),
-      path: self.getPath(url),
-      headers: header_sent
-    }, function (res) {
-      res.setEncoding('binary');
-
-      res.on('data', function (chunk) {
-        console.log(chunk);
-        content += chunk;
-      });
-
-      res.on('end',function(){
-        content = iconv.decode(new Buffer(content,'binary'),'gbk');
-        console.log('this is content:' + content);
-        //var resp = new Buffer(content,'binary');
-
-        /!*fs.writeFile( process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg', resp, function(e) {
-         self.ysdm();
-         /!*if(typeof callback === 'function'){
-         callback(e);
-         }*!/
-
-         });*!/
-      });
-
-    }).on('error', function (err) {
-      console.error(err);
-    });*/
-
-    /*nodegrass.get(url, function(data, status, headers){
-
-      if(status == 302){
-        self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
-        /!*console.log('location:' + headers['location']);
-        console.log(headers["set-cookie"]);*!/
-        self.cgiLogin(headers['location'], headers["set-cookie"]);
-      }
-      else{
-        console.log('not 302 location:' + headers['location']);
-        console.log('not 302 data:' + data);
-      }
-
-    }, header_sent, "utf8");*/
   },
 
   cgiLogin: function(url, cookie){
@@ -313,9 +255,9 @@ var qqmail = {
       //res.setEncoding('binary');
       var status = res.statusCode;
       var headers = res.headers;
-      console.log(status);
-      console.log(JSON.stringify(headers));
-      //self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      //console.log(status);
+      //console.log(JSON.stringify(headers));
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
 
 
@@ -327,41 +269,58 @@ var qqmail = {
         //console.log(content);
 
         if(status == 302){
-
-          //self.cgiLogin(headers['location'], headers['set-cookie']);
+          self.visitFrameHtml(headers['location']);
         }
-
 
       });
     });
 
+  },
 
-    // ------
-
-    /*var header_sent = {
-      "Host": "mail.qq.com",
-      "cookie": cookie,
-      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0",
-      "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*!/!*;q=0.8"
-      /!*"Accept-Encoding":"gzip, deflate"*!/
-    };
+  visitFrameHtml: function(url){
+    var self = this;
 
 
-    nodegrass.get(url, function(data, status, headers){
+    var content = '';
+    var protocol = self.getProtocol(url);
 
-      if(status == 302){
-        self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
-        console.log('cgiLogin:' + headers['location']);
-        console.log(headers["set-cookie"]);
-        //self.visitFrame(headers['location']);
+    console.log('framehtml: ' + url);
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+    console.log(temp_cookie);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
       }
-      else{
-        console.log('cgiLogin not 302 location:' + headers['location']);
-        console.log('cgiLogin not 302 data:' + data);
-      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+      console.log(status);
+      console.log(JSON.stringify(headers));
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
-    }, header_sent, "gbk");*/
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'gbk');
+          console.log(content);
+        }
+
+      });
+    });
   },
 
 
