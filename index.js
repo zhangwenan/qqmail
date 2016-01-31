@@ -1,5 +1,5 @@
 var encoder = require("./lib/c_login_2_10135.modified.js");
-var merge_cookie = require('./lib/merge_cookie.js');
+var cookie_util = require('./lib/cookie_util.js');
 
 var nodegrass = require("nodegrass");
 var http = require('http');
@@ -7,8 +7,9 @@ var https = require('https');
 var mkdirp = require('mkdirp');
 var fs = require("fs");
 var rest 	 = require('restler');
+var httpsFollow302 = require('follow-redirects').https;
 
-
+var iconv = require('iconv-lite');
 
 var qqmail = {
 
@@ -55,7 +56,6 @@ var qqmail = {
   saveCookies: function(){
 
   },
-
 
 
   /**
@@ -172,11 +172,14 @@ var qqmail = {
 
     nodegrass.get(url, function(data, status, headers){
       // 执行 ptuiCB
+      console.log(data);
       eval('self.' + data);
-      self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
       if(self.logged_obj.login_retcode == 0){
-        console.log(JSON.stringify(self.logged_obj));
+        //console.log(JSON.stringify(self.logged_obj));
+
+        console.log('redirect: ' + self.logged_obj.login_redirect_url);
         self.checkSig(self.logged_obj.login_redirect_url);
       }
     }, header_sent, "utf8");
@@ -185,38 +188,182 @@ var qqmail = {
   checkSig: function(url){
     var self = this;
 
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    console.log('checking sig');
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding':'gzip, deflate'
+      }
+    }, function(res){
+      //res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+      console.log(status);
+      console.log(JSON.stringify(headers));
+      //self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        //var resp = new Buffer(content,'binary');
+        console.log(content);
+
+        if(status == 302){
+          self.cgiLogin(headers['location'], headers['set-cookie']);
+        }
+
+      });
+    });
+
+    // ---
+
+    /*console.log('Host is: ' + self.getHost(url));
     var header_sent = {
       "Host": "ssl.ptlogin2.mail.qq.com",
-      "cookie": self.cookies
+      //"cookie": self.cookies,
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0",
+      "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*!/!*;q=0.8",
+      "Accept-Encoding":"gzip, deflate"
+    };*/
+
+    /*var content = '';
+    httpsFollow302.get({
+      host: self.getHost(url),
+      port:self.getPort(url),
+      path: self.getPath(url),
+      headers: header_sent
+    }, function (res) {
+      res.setEncoding('binary');
+
+      res.on('data', function (chunk) {
+        console.log(chunk);
+        content += chunk;
+      });
+
+      res.on('end',function(){
+        content = iconv.decode(new Buffer(content,'binary'),'gbk');
+        console.log('this is content:' + content);
+        //var resp = new Buffer(content,'binary');
+
+        /!*fs.writeFile( process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg', resp, function(e) {
+         self.ysdm();
+         /!*if(typeof callback === 'function'){
+         callback(e);
+         }*!/
+
+         });*!/
+      });
+
+    }).on('error', function (err) {
+      console.error(err);
+    });*/
+
+    /*nodegrass.get(url, function(data, status, headers){
+
+      if(status == 302){
+        self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+        /!*console.log('location:' + headers['location']);
+        console.log(headers["set-cookie"]);*!/
+        self.cgiLogin(headers['location'], headers["set-cookie"]);
+      }
+      else{
+        console.log('not 302 location:' + headers['location']);
+        console.log('not 302 data:' + data);
+      }
+
+    }, header_sent, "utf8");*/
+  },
+
+  cgiLogin: function(url, cookie){
+    var self = this;
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    console.log('cgi login: ' + url);
+    var temp_cookie = cookie_util.get_simple_cookie_str(cookie);
+    console.log(temp_cookie);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      //res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+      console.log(status);
+      console.log(JSON.stringify(headers));
+      //self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        //var resp = new Buffer(content,'binary');
+        //console.log(content);
+
+        if(status == 302){
+
+          //self.cgiLogin(headers['location'], headers['set-cookie']);
+        }
+
+
+      });
+    });
+
+
+    // ------
+
+    /*var header_sent = {
+      "Host": "mail.qq.com",
+      "cookie": cookie,
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0",
+      "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*!/!*;q=0.8"
+      /!*"Accept-Encoding":"gzip, deflate"*!/
     };
+
 
     nodegrass.get(url, function(data, status, headers){
 
       if(status == 302){
         self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
-        self.visitFrame(headers['location']);
+        console.log('cgiLogin:' + headers['location']);
+        console.log(headers["set-cookie"]);
+        //self.visitFrame(headers['location']);
+      }
+      else{
+        console.log('cgiLogin not 302 location:' + headers['location']);
+        console.log('cgiLogin not 302 data:' + data);
       }
 
-    }, header_sent, "utf8");
+    }, header_sent, "gbk");*/
   },
 
-  visitFrame: function(url){
-    var self = this;
-    var header_sent = {
-      "cookie": self.cookies
-    };
-
-    nodegrass.get(url, function(data, status, headers){
-      console.log(data);
-      console.log(status);
-
-      self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
-      console.log(JSON.stringify(headers));
-
-
-    }, header_sent, "gbk");
-
-  },
 
   checkVCode: function(){
     var self = this;
@@ -239,7 +386,7 @@ var qqmail = {
       // 执行ptui_checkVC
       eval('self.' + data);
 
-      self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
       // 无需图形验证码
       if(!self.g_need_vcode){
@@ -305,7 +452,7 @@ var qqmail = {
     };
 
     mkdirp(process.cwd() + '/' + self.vcode_dir, function (err) {
-      if (err) console.error(err)
+      if (err) console.error(err);
       else console.log('pow!')
     });
 
@@ -322,7 +469,7 @@ var qqmail = {
       res.setEncoding('binary');
       //var status = res.statusCode;
       var headers = res.headers;
-      self.cookies = merge_cookie(self.cookies, headers["set-cookie"]);
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
       res.on('data',function(chunk){
         content += chunk;
