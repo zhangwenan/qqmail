@@ -12,6 +12,14 @@ var httpsFollow302 = require('follow-redirects').https;
 var iconv = require('iconv-lite');
 
 var qqmail = {
+  conf: {
+    "username":"",
+    "password":"",
+
+    "typeid":"3040",
+    "softid":"",
+    "softkey":""
+  },
 
   qq: null,
   pwd: null,
@@ -492,15 +500,15 @@ var qqmail = {
     var self = this;
     var filename = process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg';
 
-    var conf = JSON.parse(fs.readFileSync(process.cwd() + '/' + self.conf_file, "utf-8"));
+    //var conf = JSON.parse(fs.readFileSync(process.cwd() + '/' + self.conf_file, "utf-8"));
     rest.post('http://api.ysdm.net/create.json', {
       multipart: true,
       data: {
-        'username': conf.username,
-        'password': conf.password,
-        'typeid': conf.typeid,
-        'softid': conf.softid,
-        'softkey': conf.softkey,
+        'username': self.conf.username,
+        'password': self.conf.password,
+        'typeid': self.conf.typeid,
+        'softid': self.conf.softid,
+        'softkey': self.conf.softkey,
         'image': rest.file(filename, null, fs.statSync(filename).size, null, 'image/gif') // filename: 抓取回来的码证码文件
       },
       headers: {
@@ -518,6 +526,10 @@ var qqmail = {
       self.postToLogin(ptvfsession, p);
 
     });
+  },
+
+  init: function(conf){
+    self.conf = conf;
   }
 
 };
