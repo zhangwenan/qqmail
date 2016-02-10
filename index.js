@@ -121,13 +121,13 @@ var qqmail = {
     nodegrass.get(self.temp.iframe, function(data, status, headers){
 
       self.cookies = headers["set-cookie"];
-      console.log(self.cookies);
+
 
       var login_sig_reg = /pt_login_sig=([^;]+)/;
 
       if(login_sig_reg.exec(self.cookies) != null){
         self.g_login_sig = RegExp.$1;
-        //console.log('g_login_sig: ' + self.g_login_sig);
+
       }
 
       var json_reg = /pt\.ptui=(\{.*?\});\s*<\/script>/;
@@ -180,14 +180,12 @@ var qqmail = {
 
     nodegrass.get(url, function(data, status, headers){
       // 执行 ptuiCB
-      console.log(data);
+
       eval('self.' + data);
       self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
       if(self.logged_obj.login_retcode == 0){
-        //console.log(JSON.stringify(self.logged_obj));
 
-        console.log('redirect: ' + self.logged_obj.login_redirect_url);
         self.checkSig(self.logged_obj.login_redirect_url);
       }
     }, header_sent, "utf8");
@@ -199,7 +197,7 @@ var qqmail = {
     var content = '';
     var protocol = self.getProtocol(url);
 
-    console.log('checking sig');
+
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -215,19 +213,14 @@ var qqmail = {
       //res.setEncoding('binary');
       var status = res.statusCode;
       var headers = res.headers;
-      console.log(status);
-      console.log(JSON.stringify(headers));
+
       self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
-
-
 
       res.on('data',function(chunk){
         content += chunk;
       });
       res.on('end',function(){
         //var resp = new Buffer(content,'binary');
-        console.log(content);
-
         if(status == 302){
           self.cgiLogin(headers['location'], headers['set-cookie']);
         }
@@ -243,9 +236,7 @@ var qqmail = {
     var content = '';
     var protocol = self.getProtocol(url);
 
-    console.log('cgi login: ' + url);
     var temp_cookie = cookie_util.get_simple_cookie_str(cookie);
-    console.log(temp_cookie);
 
     protocol.get({
       host:self.getHost(url),
@@ -263,10 +254,7 @@ var qqmail = {
       //res.setEncoding('binary');
       var status = res.statusCode;
       var headers = res.headers;
-      //console.log(status);
-      //console.log(JSON.stringify(headers));
       self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
-
 
 
       res.on('data',function(chunk){
@@ -274,7 +262,6 @@ var qqmail = {
       });
       res.on('end',function(){
         //var resp = new Buffer(content,'binary');
-        //console.log(content);
 
         if(status == 302){
           self.visitFrameHtml(headers['location']);
@@ -292,9 +279,7 @@ var qqmail = {
     var content = '';
     var protocol = self.getProtocol(url);
 
-    console.log('framehtml: ' + url);
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
-    console.log(temp_cookie);
 
     protocol.get({
       host:self.getHost(url),
@@ -312,8 +297,7 @@ var qqmail = {
       res.setEncoding('binary');
       var status = res.statusCode;
       var headers = res.headers;
-      console.log(status);
-      console.log(JSON.stringify(headers));
+
       self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
 
 
@@ -324,7 +308,6 @@ var qqmail = {
 
         if(status == 200){
           content = iconv.decode(new Buffer(content,'binary'),'gbk');
-          console.log(content);
         }
 
       });
@@ -359,9 +342,11 @@ var qqmail = {
       if(!self.g_need_vcode){
         var ptvfsession = self.get_ptvfsession();
         var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
+        console.log(qq + ',无需验证码，直接开始登陆...');
         self.postToLogin(ptvfsession, p);
       }
       else{
+        console.log(qq + ',开始识别验证码...');
         self.downloadVcode(self.g_vcode.result);
       }
     }, header_sent, "utf8");
@@ -420,13 +405,13 @@ var qqmail = {
 
     mkdirp(process.cwd() + '/' + self.vcode_dir, function (err) {
       if (err) console.error(err);
-      else console.log('pow!')
+      else console.log('验证码文件夹创建成功!');
     });
 
     var content = '';
     var protocol = self.getProtocol(url);
 
-    console.log('download');
+
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -517,9 +502,8 @@ var qqmail = {
       }
     }).on('complete', function(data) {
       var captcha = JSON.parse(data);
-      //console.log('Captcha Encoded.');
       self.g_vcode.result = captcha.Result;
-      console.log(captcha);
+      console.log('验证码识别结果为：' + captcha);
 
       var ptvfsession = self.get_ptvfsession();
       var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
@@ -529,7 +513,7 @@ var qqmail = {
   },
 
   init: function(conf){
-    self.conf = conf;
+    this.conf = conf;
   }
 
 };
