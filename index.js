@@ -71,10 +71,11 @@ var qqmail = {
    * @param qq
    * @param pwd
    */
-  login: function(qq, pwd){
+  login: function(qq, pwd, callbacks){
     console.log('QQ:' + qq + ' 开始登陆 ...');
     this.qq = qq;
     this.pwd = pwd;
+    this.callbacks = callbacks;
 
     this.visitIndex();
 
@@ -187,6 +188,9 @@ var qqmail = {
       if(self.logged_obj.login_retcode == 0){
 
         console.log(self.qq + '登陆成功，昵称为：' + self.logged_obj.login_nick);
+        if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
+          self.callbacks.success(self);
+        }
         //self.checkSig(self.logged_obj.login_redirect_url);
       }
     }, header_sent, "utf8");
