@@ -509,7 +509,7 @@ var qqmail = {
     }).on('complete', function(data) {
       var captcha = JSON.parse(data);
       self.g_vcode.result = captcha.Result;
-      console.log('验证码识别结果为：' + captcha);
+      console.log('验证码识别结果为：' + self.g_vcode.result);
 
       var ptvfsession = self.get_ptvfsession();
       var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
