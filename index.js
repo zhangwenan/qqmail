@@ -6,8 +6,8 @@ var http = require('http');
 var https = require('https');
 var mkdirp = require('mkdirp');
 var fs = require("fs");
-var rest 	 = require('restler');
-var httpsFollow302 = require('follow-redirects').https;
+var rest = require('restler');
+//var httpsFollow302 = require('follow-redirects').https;
 
 var iconv = require('iconv-lite');
 
@@ -43,7 +43,6 @@ var qqmail = {
     result: null
   },
   vcode_dir: 'vcode_img',
-  conf_file: 'qqmail.json',
 
 
   temp:{
@@ -56,13 +55,15 @@ var qqmail = {
     login_nick: null
   },
 
+  init: function(conf){
+    this.conf = conf;
+  },
 
-  /**
-   * 登陆成功后，将cookies暂存到本地文件
-   * 如：88306691cookies.txt
-   */
-  saveCookies: function(){
-
+  clearStorage: function(){
+    var self = this;
+    self.qq = null;
+    self.pwd = null;
+    self.cookies = null;
   },
 
 
@@ -73,12 +74,13 @@ var qqmail = {
    */
   login: function(qq, pwd, callbacks){
     console.log('QQ:' + qq + ' 开始登陆 ...');
+    this.clearStorage();
+
     this.qq = qq;
     this.pwd = pwd;
     this.callbacks = callbacks;
 
     this.visitIndex();
-
   },
 
   /**
@@ -187,7 +189,8 @@ var qqmail = {
 
       if(self.logged_obj.login_retcode == 0){
 
-        console.log(self.qq + '登陆成功，昵称为：' + self.logged_obj.login_nick);
+        console.log('【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick);
+
         if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
           self.callbacks.success(self);
         }
@@ -411,7 +414,7 @@ var qqmail = {
 
     mkdirp(process.cwd() + '/' + self.vcode_dir, function (err) {
       if (err) console.error(err);
-      else console.log('验证码文件夹创建成功!');
+      //else console.log('验证码文件夹创建成功!');
     });
 
     var content = '';
@@ -491,7 +494,6 @@ var qqmail = {
     var self = this;
     var filename = process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg';
 
-    //var conf = JSON.parse(fs.readFileSync(process.cwd() + '/' + self.conf_file, "utf-8"));
     rest.post('http://api.ysdm.net/create.json', {
       multipart: true,
       data: {
@@ -516,10 +518,6 @@ var qqmail = {
       self.postToLogin(ptvfsession, p);
 
     });
-  },
-
-  init: function(conf){
-    this.conf = conf;
   }
 
 };
