@@ -24,6 +24,7 @@ var qqmail = {
   qq: null,
   pwd: null,
   cookies: null,
+  frame_html_url: '',
 
   g_action: "1-12-1444200532430",
   g_t: "20131024001",
@@ -64,6 +65,7 @@ var qqmail = {
     self.qq = null;
     self.pwd = null;
     self.cookies = null;
+    self.frame_html_url = '';
   },
 
 
@@ -185,16 +187,10 @@ var qqmail = {
       // 执行 ptuiCB
       // ptuiCB('0','0','https://ssl.ptlogin2.mail.qq.com/check_sig?pttype=1&uin=88306691&service=login&nodirect=0&ptsigx=7f42d22a98cc0eee54388ff45008f1f1ef9179e9ac5770b87b453be793dfcef33e6c6815dfd61b5427a17c975f71c6511a7bdaf4675f4f723a1e13dd18de1fc3&s_url=https%3A%2F%2Fmail.qq.com%2Fcgi-bin%2Flogin%3Fvt%3Dpassport%26vm%3Dwpt%26ft%3Dloginpage%26target%3D%26account%3D88306691&f_url=&ptlang=2052&ptredirect=101&aid=522005705&daid=4&j_later=0&low_login_hour=0&regmaster=0&pt_login_type=1&pt_aid=0&pt_aaid=0&pt_light=0&pt_3rd_aid=0','1','登录成功！', ' 文烈');
       eval('self.' + data);
-      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
 
       if(self.logged_obj.login_retcode == 0){
-
-        console.log('【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick);
-
-        if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
-          self.callbacks.success(self);
-        }
-        //self.checkSig(self.logged_obj.login_redirect_url);
+        self.checkSig(self.logged_obj.login_redirect_url);
       }
     }, header_sent, "utf8");
   },
@@ -272,7 +268,14 @@ var qqmail = {
         //var resp = new Buffer(content,'binary');
 
         if(status == 302){
-          self.visitFrameHtml(headers['location']);
+          // 说明邮箱未开通
+          if(/cgi-bin\/autoactivation/.test(headers['location'])){
+            self.activateMail(headers['location']);
+          }
+          else if(/cgi-bin\/frame_html/.test(headers['location'])){
+            self.visitFrameHtml(headers['location']);
+          }
+
         }
 
       });
@@ -280,9 +283,121 @@ var qqmail = {
 
   },
 
-  visitFrameHtml: function(url){
+  activateMail: function(url){
     var self = this;
 
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'gbk');
+          //console.log(content);
+
+          var reg = new RegExp("_sTargetUrl = '([^']+)';", "i");
+          reg.exec(content);
+          var reg_result = RegExp.$1;
+
+          var reg2 = new RegExp('href="(/cgi-bin/frame_html[^"]+)"', "i");
+          reg2.exec(content);
+          var reg_result2 = RegExp.$1;
+
+          if(reg_result.length > 0 && reg_result2.length > 0){
+            self.activateMailStep2('https://mail.qq.com' + reg_result);
+            self.frame_html_url = "https://mail.qq.com" + reg_result2;
+          }
+          else{
+            console.log(self.qq + '激活邮箱发生异常');
+          }
+
+        }
+      });
+    });
+  },
+  activateMailStep2: function(url){
+    var self = this;
+    var content = '';
+    var protocol = self.getProtocol(url);
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+
+    console.log('step2');
+    var req = protocol.request({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      method: 'POST',
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'gbk');
+          //console.log(content);
+          if(content.indexOf("<!--success-->") != -1){
+            console.log('【' + self.qq + '】邮箱激活成功');
+            self.visitFrameHtml(self.frame_html_url);
+          }
+          else{
+            console.log('【' + self.qq + '】邮箱激活失败,返回:' + content);
+            console.log('step2 shibi');
+          }
+        }
+        else{
+          console.log(status);
+          console.log(content);
+        }
+      });
+    });
+
+    req.end();
+  },
+
+  visitFrameHtml: function(url){
+    var self = this;
+    self.frame_html_url = url;
 
     var content = '';
     var protocol = self.getProtocol(url);
@@ -316,7 +431,18 @@ var qqmail = {
 
         if(status == 200){
           content = iconv.decode(new Buffer(content,'binary'),'gbk');
-          console.log(content);
+          //console.log(content);
+          if(/toptitle">退出<\/a>/ig.test(content)){
+            console.log('【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick);
+            if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
+              self.callbacks.success(self);
+            }
+          }
+          else{
+            console.log('【' + self.qq + '】登陆可能失败');
+            console.log(content);
+          }
+
         }
 
       });
