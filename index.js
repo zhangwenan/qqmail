@@ -1,5 +1,5 @@
 var encoder = require("./lib/c_login_2_10135.modified.js");
-var cookie_util = require('./lib/cookie_util.js');
+var cookie_util = require('cookie-util');
 
 var nodegrass = require("nodegrass");
 var http = require('http');
