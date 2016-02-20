@@ -228,9 +228,11 @@ var qqmail = {
 
         switch (self.logged_obj.login_retcode){
           case 0:
+          case '0':
             self.checkSig(self.logged_obj.login_redirect_url);
             break;
           case 4:
+          case '4':
             // 验证码错误，ptuiCB('4','0','','0','您输入的验证码不正确，请重新输入。', '');
             self.callbacks.complete(self);
             break;
