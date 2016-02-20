@@ -25,10 +25,16 @@ log4js.configure({
       "pattern": "-yyyy-MM-dd",
       "alwaysIncludePattern": false,
       "category": "qqmail"
+    },
+    {
+      "type": "console",
+      "category": "console"
     }
   ]
 });
-var logger = log4js.getLogger("qqmail");
+var file_logger = log4js.getLogger("qqmail");
+var console_logger = log4js.getLogger("console");
+var msg = '';
 
 var qqmail = {
   conf: {
@@ -94,7 +100,10 @@ var qqmail = {
    * @param pwd
    */
   login: function(qq, pwd, callbacks){
-    console.log('QQ:' + qq + ' 开始登陆 ...');
+    msg = 'QQ:' + qq + ' 开始登陆 ...'
+    console_logger.info(msg);
+    file_logger.info(msg);
+
     this.clearStorage();
 
     this.qq = qq;
@@ -118,8 +127,10 @@ var qqmail = {
       },
       iframe_reg = new RegExp("<iframe id=[\"']login_frame[\"'].*?src=['\"]([^'\"]+)['\"]></iframe>", "ig");
 
-    nodegrass.get(qq_mail_index_url, function(data, status, headers){
+    msg = self.qq + ', visitIndex start';
+    file_logger.info(msg);
 
+    nodegrass.get(qq_mail_index_url, function(data, status, headers){
 
       iframe_reg.exec(data);
       if(RegExp.$1){
@@ -142,16 +153,17 @@ var qqmail = {
     var self = this;
     var headers_sent = {};
 
+    msg = self.qq + ', start visitIframe';
+    file_logger.info(msg);
+
     nodegrass.get(self.temp.iframe, function(data, status, headers){
 
       self.cookies = headers["set-cookie"];
-
 
       var login_sig_reg = /pt_login_sig=([^;]+)/;
 
       if(login_sig_reg.exec(self.cookies) != null){
         self.g_login_sig = RegExp.$1;
-
       }
 
       var json_reg = /pt\.ptui=(\{.*?\});\s*<\/script>/;
@@ -167,16 +179,21 @@ var qqmail = {
         self.g_daid = ptui.daid;
         self.g_pt_ver_md5 = ptui.pt_ver_md5;
 
-
         self.checkVCode();
       }
       else{
-        console.log('what the fuck, ptui is not found.');
+        msg = self.qq + ', ptui not found';
+        console_logger.info(msg);
+        file_logger.info(msg);
+        self.callbacks.complete(self);
       }
 
-
     }, headers_sent, "utf8").on('error', function(e) {
-      console.log("Got error: " + e.message);
+
+      msg = self.qq + "Got error: " + e.message;
+      console_logger.info(msg);
+      file_logger.info(msg);
+      self.callbacks.complete(self);
     });
   },
 
@@ -202,7 +219,9 @@ var qqmail = {
       "cookie": self.cookies
     };
 
-    logger.info(self.qq + ',postToLogin()');
+    msg = self.qq + 'postToLogin';
+    file_logger.info(msg);
+
 
     var content = '';
     var protocol = self.getProtocol(url);
@@ -234,10 +253,13 @@ var qqmail = {
           case 4:
           case '4':
             // 验证码错误，ptuiCB('4','0','','0','您输入的验证码不正确，请重新输入。', '');
+            msg = self.qq + ',验证码错误';
+            file_logger.info(msg);
+            console_logger.info(msg);
             self.callbacks.complete(self);
             break;
           default :
-            logger.info(self.qq + content);
+            file_logger.info(self.qq + content);
             self.callbacks.complete(self);
             break;
         }
@@ -256,7 +278,9 @@ var qqmail = {
 
     var content = '';
     var protocol = self.getProtocol(url);
-    logger.info(self.qq + ',checkSig()');
+
+    msg = self.qq + ', checkSig';
+    file_logger.info(msg);
 
     protocol.get({
       host:self.getHost(url),
@@ -284,6 +308,10 @@ var qqmail = {
         if(status == 302){
           self.cgiLogin(headers['location'], headers['set-cookie']);
         }
+        else{
+          file_logger.info(self.qq + ',checkSig error');
+          self.callbacks.complete(self);
+        }
 
       });
     });
@@ -297,7 +325,10 @@ var qqmail = {
     var protocol = self.getProtocol(url);
 
     var temp_cookie = cookie_util.get_simple_cookie_str(cookie);
-    logger.info(self.qq + ',cgiLogin()');
+
+    msg = self.qq + ', cgiLogin';
+    file_logger.info(msg);
+
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -333,6 +364,10 @@ var qqmail = {
           }
 
         }
+        else{
+          file_logger.info(self.qq + ',cgiLogin error');
+          self.callbacks.complete(self);
+        }
 
       });
     });
@@ -346,6 +381,9 @@ var qqmail = {
     var protocol = self.getProtocol(url);
 
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+
+    msg = self.qq + ', activateMail';
+    file_logger.info(msg);
 
     protocol.get({
       host:self.getHost(url),
@@ -389,9 +427,18 @@ var qqmail = {
             self.frame_html_url = "https://mail.qq.com" + reg_result2;
           }
           else{
-            console.log(self.qq + '激活邮箱发生异常');
+            msg = self.qq + '激活邮箱发生异常';
+            console_logger.info(msg);
+            file_logger.info(msg);
+            self.callbacks.complete(self);
           }
 
+        }
+        else{
+          msg = self.qq + '激活邮箱发生异常, status=' + status;
+          console_logger.info(msg);
+          file_logger.info(msg);
+          self.callbacks.complete(self);
         }
       });
     });
@@ -402,7 +449,9 @@ var qqmail = {
     var protocol = self.getProtocol(url);
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
 
-    console.log('step2');
+    msg = self.qq + ', activateMailStep2';
+    file_logger.info(msg);
+
     var req = protocol.request({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -433,17 +482,24 @@ var qqmail = {
           content = iconv.decode(new Buffer(content,'binary'),'gbk');
           //console.log(content);
           if(content.indexOf("<!--success-->") != -1){
-            console.log('【' + self.qq + '】邮箱激活成功');
+            msg = '【' + self.qq + '】邮箱激活成功';
+            console_logger.info(msg);
+            file_logger.info(msg);
+
             self.visitFrameHtml(self.frame_html_url);
           }
           else{
-            console.log('【' + self.qq + '】邮箱激活失败,返回:' + content);
-            console.log('step2 shibi');
+            msg = '【' + self.qq + '】邮箱激活失败,返回:' + content;
+            console_logger.info(msg);
+            file_logger.info(msg);
+            self.callbacks.complete(self);
           }
         }
         else{
-          console.log(status);
-          console.log(content);
+          msg = '【' + self.qq + '】邮箱激活失败,status' + status + '返回:' + content;
+          console_logger.info(msg);
+          file_logger.info(msg);
+          self.callbacks.complete(self);
         }
       });
     });
@@ -460,7 +516,9 @@ var qqmail = {
 
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
 
-    logger.info(self.qq + ',visitFrameHtml()');
+    msg = self.qq + ', visitFrameHtml';
+    file_logger.info(msg);
+
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -490,18 +548,27 @@ var qqmail = {
           content = iconv.decode(new Buffer(content,'binary'),'gbk');
           //console.log(content);
           if(/toptitle">退出<\/a>/ig.test(content)){
-            console.log('【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick);
+            msg = '【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick;
+            console_logger.info(msg);
+            file_logger.info(msg);
+
             if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
               self.callbacks.success(self);
             }
           }
           else{
-            console.log('【' + self.qq + '】登陆可能失败');
-            console.log(content);
+            msg = '【' + self.qq + '】登陆可能失败, content:' + content;
+            console_logger.info(msg);
           }
 
-          self.callbacks.complete(self);
         }
+        else{
+          msg = '【' + self.qq + '】登陆可能失败,status=' + status+ ', content:' + content;
+          console_logger.info(msg);
+          file_logger.info(msg);
+        }
+
+        self.callbacks.complete(self);
 
       });
     });
@@ -525,6 +592,9 @@ var qqmail = {
       "cookie": self.cookies
     };
 
+    msg = self.qq + ', start checkVCode';
+    file_logger.info(msg);
+
     nodegrass.get(url, function(data, status, headers){
       // 执行ptui_checkVC
       eval('self.' + data);
@@ -535,14 +605,21 @@ var qqmail = {
       if(!self.g_need_vcode){
         var ptvfsession = self.get_ptvfsession();
         var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
-        console.log(self.qq + ',无需验证码，直接开始登陆...');
+        msg = self.qq + ',无需验证码，直接开始登陆...';
+        console_logger.info(msg);
+        file_logger.info(msg);
+
         self.postToLogin(ptvfsession, p);
       }
       else{
-        console.log(self.qq + ',开始识别验证码...');
+        msg = self.qq + ',开始识别验证码...';
+        console_logger.info(msg);
+        file_logger.info(msg);
+
         self.downloadVcode(self.g_vcode.result);
       }
     }, header_sent, "utf8");
+
   },
 
 
@@ -604,6 +681,8 @@ var qqmail = {
     var content = '';
     var protocol = self.getProtocol(url);
 
+    msg = self.qq + 'download vcode';
+    file_logger.info(msg);
 
     protocol.get({
       host:self.getHost(url),
@@ -678,6 +757,9 @@ var qqmail = {
     var self = this;
     var filename = process.cwd() + '/' + self.vcode_dir + '/' + self.qq + '.jpg';
 
+    msg = self.qq + ',ysdm';
+    file_logger.info(msg);
+
     rest.post('http://api.ysdm.net/create.json', {
       multipart: true,
       data: {
@@ -695,7 +777,9 @@ var qqmail = {
     }).on('complete', function(data) {
       var captcha = JSON.parse(data);
       self.g_vcode.result = captcha.Result;
-      console.log('验证码识别结果为：' + self.g_vcode.result);
+      msg = '验证码识别结果为：' + self.g_vcode.result;
+      console_logger.info(msg);
+      file_logger.info(msg);
 
       var ptvfsession = self.get_ptvfsession();
       var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
