@@ -223,15 +223,22 @@ var qqmail = {
       });
       res.on('end',function(){
         content = iconv.decode(new Buffer(content,'binary'),'utf8');
-
-        console.log(content);
         eval('self.' + content);
         self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
 
-        if(self.logged_obj.login_retcode == 0){
-          self.checkSig(self.logged_obj.login_redirect_url);
+        switch (self.logged_obj.login_retcode){
+          case 0:
+            self.checkSig(self.logged_obj.login_redirect_url);
+            break;
+          case 4:
+            // 验证码错误，ptuiCB('4','0','','0','您输入的验证码不正确，请重新输入。', '');
+            self.callbacks.complete();
+            break;
+          default :
+            logger.info(self.qq + content);
+            self.callbacks.complete();
+            break;
         }
-
       });
 
 
@@ -491,6 +498,7 @@ var qqmail = {
             console.log(content);
           }
 
+          self.callbacks.complete();
         }
 
       });
