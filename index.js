@@ -232,11 +232,11 @@ var qqmail = {
             break;
           case 4:
             // 验证码错误，ptuiCB('4','0','','0','您输入的验证码不正确，请重新输入。', '');
-            self.callbacks.complete();
+            self.callbacks.complete(self);
             break;
           default :
             logger.info(self.qq + content);
-            self.callbacks.complete();
+            self.callbacks.complete(self);
             break;
         }
       });
@@ -498,7 +498,7 @@ var qqmail = {
             console.log(content);
           }
 
-          self.callbacks.complete();
+          self.callbacks.complete(self);
         }
 
       });
