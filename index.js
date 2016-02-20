@@ -267,8 +267,8 @@ var qqmail = {
 
 
     }).on('error', function(e){
-      console.log('登陆失败');
-      logger.error(self.qq + e);
+      console_logger.error(self.qq + '登陆失败, ' + e);
+      file_logger.error(self.qq + e);
     });
 
   },
@@ -370,6 +370,9 @@ var qqmail = {
         }
 
       });
+    }).on('error', function(e){
+      console_logger.error(self.qq + ',cgiLogin request error, ' + e);
+      file_logger.error(self.qq + ',cgiLogin request error, ' + e);
     });
 
   },
