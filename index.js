@@ -7,9 +7,28 @@ var https = require('https');
 var mkdirp = require('mkdirp');
 var fs = require("fs");
 var rest = require('restler');
+var log4js = require('log4js');
 //var httpsFollow302 = require('follow-redirects').https;
 
 var iconv = require('iconv-lite');
+
+mkdirp(process.cwd() + '/logs', function (err) {
+  if (err) console.error(err);
+  //else console.log('验证码文件夹创建成功!');
+});
+
+log4js.configure({
+  "appenders":[
+    {
+      "type": "dateFile",
+      "filename": "logs/qqmail.log",
+      "pattern": "-yyyy-MM-dd",
+      "alwaysIncludePattern": false,
+      "category": "qqmail"
+    }
+  ]
+});
+var logger = log4js.getLogger("qqmail");
 
 var qqmail = {
   conf: {
@@ -183,6 +202,7 @@ var qqmail = {
       "cookie": self.cookies
     };
 
+    logger.info(self.qq + ',postToLogin()');
     nodegrass.get(url, function(data, status, headers){
       // 执行 ptuiCB
       // ptuiCB('0','0','https://ssl.ptlogin2.mail.qq.com/check_sig?pttype=1&uin=88306691&service=login&nodirect=0&ptsigx=7f42d22a98cc0eee54388ff45008f1f1ef9179e9ac5770b87b453be793dfcef33e6c6815dfd61b5427a17c975f71c6511a7bdaf4675f4f723a1e13dd18de1fc3&s_url=https%3A%2F%2Fmail.qq.com%2Fcgi-bin%2Flogin%3Fvt%3Dpassport%26vm%3Dwpt%26ft%3Dloginpage%26target%3D%26account%3D88306691&f_url=&ptlang=2052&ptredirect=101&aid=522005705&daid=4&j_later=0&low_login_hour=0&regmaster=0&pt_login_type=1&pt_aid=0&pt_aaid=0&pt_light=0&pt_3rd_aid=0','1','登录成功！', ' 文烈');
@@ -200,7 +220,7 @@ var qqmail = {
 
     var content = '';
     var protocol = self.getProtocol(url);
-
+    logger.info(self.qq + ',checkSig()');
 
     protocol.get({
       host:self.getHost(url),
@@ -241,7 +261,7 @@ var qqmail = {
     var protocol = self.getProtocol(url);
 
     var temp_cookie = cookie_util.get_simple_cookie_str(cookie);
-
+    logger.info(self.qq + ',cgiLogin()');
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -404,6 +424,7 @@ var qqmail = {
 
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
 
+    logger.info(self.qq + ',visitFrameHtml()');
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
