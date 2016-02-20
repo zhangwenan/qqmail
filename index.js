@@ -192,7 +192,7 @@ var qqmail = {
 
 
     var header_sent = {
-      "Host": "ssl.ptlogin2.qq.com",
+      "Host": self.getHost(url),
       "Referer": "https://xui.ptlogin2.qq.com/cgi-bin/xlogin?appid=" + self.g_appid + "&daid=" + self.g_daid
       + "&s_url=https://mail.qq.com/cgi-bin/login?vt=passport%26vm=wpt%26ft=loginpage%26target=&style=" + self.g_style
       + "&low_login=1&proxy_url=https://mail.qq.com/proxy.html&need_qr=0&;hide_border=1&border_radius=0"
@@ -203,16 +203,43 @@ var qqmail = {
     };
 
     logger.info(self.qq + ',postToLogin()');
-    nodegrass.get(url, function(data, status, headers){
-      // 执行 ptuiCB
-      // ptuiCB('0','0','https://ssl.ptlogin2.mail.qq.com/check_sig?pttype=1&uin=88306691&service=login&nodirect=0&ptsigx=7f42d22a98cc0eee54388ff45008f1f1ef9179e9ac5770b87b453be793dfcef33e6c6815dfd61b5427a17c975f71c6511a7bdaf4675f4f723a1e13dd18de1fc3&s_url=https%3A%2F%2Fmail.qq.com%2Fcgi-bin%2Flogin%3Fvt%3Dpassport%26vm%3Dwpt%26ft%3Dloginpage%26target%3D%26account%3D88306691&f_url=&ptlang=2052&ptredirect=101&aid=522005705&daid=4&j_later=0&low_login_hour=0&regmaster=0&pt_login_type=1&pt_aid=0&pt_aaid=0&pt_light=0&pt_3rd_aid=0','1','登录成功！', ' 文烈');
-      eval('self.' + data);
-      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
 
-      if(self.logged_obj.login_retcode == 0){
-        self.checkSig(self.logged_obj.login_redirect_url);
-      }
-    }, header_sent, "utf8");
+    var content = '';
+    var protocol = self.getProtocol(url);
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: header_sent
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        content = iconv.decode(new Buffer(content,'binary'),'utf8');
+
+        console.log(content);
+        eval('self.' + content);
+        self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
+
+        if(self.logged_obj.login_retcode == 0){
+          self.checkSig(self.logged_obj.login_redirect_url);
+        }
+
+      });
+
+
+    }).on('error', function(e){
+      console.log('登陆失败');
+      logger.error(self.qq + e);
+    });
+
   },
 
   checkSig: function(url){
