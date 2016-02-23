@@ -354,18 +354,28 @@ var qqmail = {
       res.on('end',function(){
         //var resp = new Buffer(content,'binary');
 
+
         if(status == 302){
           // 说明邮箱未开通
           if(/cgi-bin\/autoactivation/.test(headers['location'])){
             self.activateMail(headers['location']);
           }
+          else if(/cgi-bin\/loginpage/.test(headers['location'])){
+            // 可能出现了验证码等异常
+            file_logger.info(self.qq + ',cgiLogin error: loginpage');
+            self.callbacks.complete(self);
+          }
           else if(/cgi-bin\/frame_html/.test(headers['location'])){
             self.visitFrameHtml(headers['location']);
+          }
+          else{
+            file_logger.info(self.qq + ',cgiLogin error: unknow');
+            self.callbacks.complete(self);
           }
 
         }
         else{
-          file_logger.info(self.qq + ',cgiLogin error');
+          file_logger.info(self.qq + ',cgiLogin error: not 302');
           self.callbacks.complete(self);
         }
 
