@@ -10,6 +10,12 @@ var rest = require('restler');
 var log4js = require('log4js');
 //var httpsFollow302 = require('follow-redirects').https;
 
+/**
+ *
+ * 以下id的账号，已经无法找回
+ * 14330,17560,22238
+ */
+
 var iconv = require('iconv-lite');
 
 mkdirp(process.cwd() + '/logs', function (err) {
@@ -66,7 +72,8 @@ var qqmail = {
   g_salt:null,
   g_pt_verifysession_v1: null,
   g_vcode: {
-    result: null
+    result: null,
+    ysdm_id: null
   },
   vcode_dir: 'vcode_img',
 
@@ -253,10 +260,13 @@ var qqmail = {
           case 4:
           case '4':
             // 验证码错误，ptuiCB('4','0','','0','您输入的验证码不正确，请重新输入。', '');
-            msg = self.qq + ',验证码错误';
+
+            msg = self.qq + ',验证码错误,开始报错';
             file_logger.info(msg);
             console_logger.info(msg);
+            self.ysdm_report_err(self.g_vcode.ysdm_id);
             self.callbacks.complete(self);
+
             break;
           default :
             file_logger.info(self.qq + content);
@@ -790,6 +800,8 @@ var qqmail = {
     }).on('complete', function(data) {
       var captcha = JSON.parse(data);
       self.g_vcode.result = captcha.Result;
+      self.g_vcode.ysdm_id = captcha.Id;
+
       msg = '验证码识别结果为：' + self.g_vcode.result;
       console_logger.info(msg);
       file_logger.info(msg);
@@ -797,6 +809,35 @@ var qqmail = {
       var ptvfsession = self.get_ptvfsession();
       var p = encoder.encode(self.pwd, self.g_salt, self.g_vcode.result);
       self.postToLogin(ptvfsession, p);
+
+    });
+  },
+
+
+  ysdm_report_err: function(ysdm_id){
+
+    var self = this;
+    msg = self.qq + ',ysdm_report_err';
+    file_logger.info(msg);
+
+    rest.post('http://api.ysdm.net/reporterror.json', {
+      multipart: false,
+      data: {
+        'username': self.conf.username,
+        'password': self.conf.password,
+        'softid': self.conf.softid,
+        'softkey': self.conf.softkey,
+        'id': ysdm_id
+      },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.8; rv:24.0) Gecko/20100101 Firefox/24.0',
+        'Content-Type' : 'application/x-www-form-urlencoded'
+      }
+    }).on('complete', function(data) {
+
+      msg = '【id】' + ysdm_id + '已经报错，报错结果：' + data;
+      console_logger.info(msg);
+      file_logger.info(msg);
 
     });
   }
