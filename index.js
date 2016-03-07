@@ -8,6 +8,7 @@ var mkdirp = require('mkdirp');
 var fs = require("fs");
 var rest = require('restler');
 var log4js = require('log4js');
+var cheerio = require('cheerio');
 //var httpsFollow302 = require('follow-redirects').https;
 
 /**
@@ -56,6 +57,7 @@ var qqmail = {
   pwd: null,
   cookies: null,
   frame_html_url: '',
+  sid: '',
 
   g_action: "1-12-1444200532430",
   g_t: "20131024001",
@@ -249,6 +251,7 @@ var qqmail = {
       });
       res.on('end',function(){
         content = iconv.decode(new Buffer(content,'binary'),'utf8');
+
         eval('self.' + content);
         self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
 
@@ -542,6 +545,11 @@ var qqmail = {
     msg = self.qq + ', visitFrameHtml';
     file_logger.info(msg);
 
+    // https://mail.qq.com/cgi-bin/frame_html?sid=jHqD72J8QccakCN1&r=00f23b1af5b52eb585afa0bfa66dade1
+    var sid_reg = /sid=([^&]+)/;
+    sid_reg.exec(url);
+    self.sid = RegExp.$1;
+
     protocol.get({
       host:self.getHost(url),
       port:self.getPort(url),
@@ -592,6 +600,200 @@ var qqmail = {
         }
 
         self.callbacks.complete(self);
+
+      });
+    });
+  },
+
+  /**
+   *
+   * @param options
+   *
+   https://set1.mail.qq.com/cgi-bin/mail_list?s=search&searchmode=advance&page=0&topmails=0&subject=&receiver=&sender=no-reply%40qiyi.com&advancesearch=2&flagnew=&attach=&position=2&folderid=all&sid=jHqD72J8QccakCN1&daterange=&resp_charset=UTF8
+   */
+  search: function(options, callback){
+    var self = this;
+
+    var ops = {};
+    ops.s = options.s || 'search';
+    ops.searchmode = options.searchmode || 'advance';
+    ops.page = options.page || '0';
+    ops.topmails = options.topmails || '0';
+    ops.subject = options.subject || '';
+    ops.receiver = options.receiver || '';
+    ops.sender = options.sender || '';
+    ops.advancesearch = options.advancesearch || '2';
+    ops.flagnew = options.flagnew || '';
+    ops.attach = options.attach || '';
+    ops.position = options.position || '2';
+    ops.folderid = options.folderid || 'all';
+    ops.daterange = options.daterange || '';
+    ops.resp_charset = options.resp_charset || 'UTF8';
+
+    var url = "https://set1.mail.qq.com/cgi-bin/mail_list?" +
+      "s=" + ops.s +
+      "&searchmode=" + ops.searchmode +
+      "&page=" + ops.page +
+      "&topmails=" + ops.topmails +
+      "&subject=" + encodeURIComponent(ops.subject) +
+      "&receiver=" + encodeURIComponent(ops.receiver) +
+      "&sender=" + encodeURIComponent(ops.sender) +
+      "&advancesearch=" + ops.advancesearch +
+      "&flagnew=" + ops.flagnew +
+      "&attach=" + ops.attach +
+      "&position=" + ops.position +
+      "&folderid=" + ops.folderid +
+      "&sid=" + self.sid +
+      "&daterange=" + ops.daterange +
+      "&resp_charset=" + ops.resp_charset;
+
+
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+    msg = self.qq + ', search mail';
+    file_logger.info(msg);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'utf8');
+          $ = cheerio.load(content);
+          var mail = $('.toarea input[name=mailid]').eq(0);
+          self.read({
+            mail_id: mail.val(),
+            totime: mail.attr('totime')
+          }, callback);
+          /*if(/toptitle">退出<\/a>/ig.test(content)){
+            msg = '【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick;
+            console_logger.info(msg);
+            file_logger.info(msg);
+
+            if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
+              self.callbacks.success(self);
+            }
+          }
+          else{
+            msg = '【' + self.qq + '】登陆可能失败, content:' + content;
+            console_logger.info(msg);
+          }*/
+
+        }
+        else{
+          /*msg = '【' + self.qq + '】登陆可能失败,status=' + status+ ', content:' + content;
+          console_logger.info(msg);
+          file_logger.info(msg);*/
+        }
+
+        //self.callbacks.complete(self);
+
+      });
+    });
+  },
+
+  read: function(mail, callback){
+
+    // https://set1.mail.qq.com/cgi-bin/readmail?
+    // folderid=1&folderkey=&t=readmail
+    // &mailid=ZC1117-SrzIEZx4jgjLpRZAq_uUU62
+    // &mode=pre&maxage=3600&base=11.8&ver=18579
+    // &sid=lmAmmhcnoyX4zH8p
+
+    var self = this;
+    var url = "https://set1.mail.qq.com/cgi-bin/readmail?" +
+      "folderid=1" +
+      "&folderkey=" +
+      "&t=readmail" +
+      "&mailid=" + (mail.mail_id || '') +
+      "&mode=pre" +
+      "&maxage=3600" +
+      "&base=11.8" +
+      "&ver=18579" +
+      "&sid=" + self.sid;
+
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+    msg = self.qq + ', read mail';
+    file_logger.info(msg);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'utf8');
+          callback(content);
+          /*if(/toptitle">退出<\/a>/ig.test(content)){
+           msg = '【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick;
+           console_logger.info(msg);
+           file_logger.info(msg);
+
+           if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
+           self.callbacks.success(self);
+           }
+           }
+           else{
+           msg = '【' + self.qq + '】登陆可能失败, content:' + content;
+           console_logger.info(msg);
+           }*/
+
+        }
+        else{
+          /*msg = '【' + self.qq + '】登陆可能失败,status=' + status+ ', content:' + content;
+           console_logger.info(msg);
+           file_logger.info(msg);*/
+        }
+
+        //self.callbacks.complete(self);
 
       });
     });

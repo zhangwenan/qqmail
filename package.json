@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/zhangwenan/qqmail#readme",
   "dependencies": {
+    "cheerio": "^0.20.0",
     "cookie-util": "^1.0.1",
     "follow-redirects": "0.0.7",
     "iconv-lite": "^0.4.13",
