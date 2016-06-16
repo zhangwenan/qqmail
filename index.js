@@ -9,6 +9,7 @@ var fs = require("fs");
 var rest = require('restler');
 var log4js = require('log4js');
 var cheerio = require('cheerio');
+var querystring = require('querystring');
 //var httpsFollow302 = require('follow-redirects').https;
 
 /**
@@ -647,6 +648,8 @@ var qqmail = {
       "&daterange=" + ops.daterange +
       "&resp_charset=" + ops.resp_charset;
 
+    // https://set1.mail.qq.com/cgi-bin/mail_list?s=search&searchmode=advance&page=0&topmails=0&subject=&receiver=&sender=no-reply%40qiyi.com&advancesearch=2&flagnew=&attach=&position=2&folderid=all&sid=v9UaNeoLWEOnEgBW&daterange=&resp_charset=UTF8
+    console_logger.info(url);
 
 
     var content = '';
@@ -683,12 +686,26 @@ var qqmail = {
 
         if(status == 200){
           content = iconv.decode(new Buffer(content,'binary'),'utf8');
+          //console_logger.info(content);
+          //file_logger.info(content);
+
           $ = cheerio.load(content);
           var mail = $('.toarea input[name=mailid]').eq(0);
-          self.read({
-            mail_id: mail.val(),
-            totime: mail.attr('totime')
-          }, callback);
+
+          if(mail.val().indexOf('-') < 0){
+            self.read_conversation({
+              mail_id: mail.val(),
+              totime: mail.attr('totime')
+            }, callback);
+          }
+          else{
+            self.read({
+              mail_id: mail.val(),
+              totime: mail.attr('totime')
+            }, callback);
+          }
+
+
           /*if(/toptitle">退出<\/a>/ig.test(content)){
             msg = '【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick;
             console_logger.info(msg);
@@ -718,11 +735,7 @@ var qqmail = {
 
   read: function(mail, callback){
 
-    // https://set1.mail.qq.com/cgi-bin/readmail?
-    // folderid=1&folderkey=&t=readmail
-    // &mailid=ZC1117-SrzIEZx4jgjLpRZAq_uUU62
-    // &mode=pre&maxage=3600&base=11.8&ver=18579
-    // &sid=lmAmmhcnoyX4zH8p
+    // https://set1.mail.qq.com/cgi-bin/readmail?folderid=1&folderkey=&t=readmail&mailid=ZC1117-SrzIEZx4jgjLpRZAq_uUU62&mode=pre&maxage=3600&base=11.8&ver=18579&sid=lmAmmhcnoyX4zH8p
 
     var self = this;
     var url = "https://set1.mail.qq.com/cgi-bin/readmail?" +
@@ -735,6 +748,7 @@ var qqmail = {
       "&base=11.8" +
       "&ver=18579" +
       "&sid=" + self.sid;
+    // C1T4D608B1B
 
 
     var content = '';
@@ -742,6 +756,86 @@ var qqmail = {
 
     var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
     msg = self.qq + ', read mail';
+    file_logger.info(msg);
+
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:41.0) Gecko/20100101 Firefox/41.0',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': temp_cookie
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+
+        if(status == 200){
+          content = iconv.decode(new Buffer(content,'binary'),'utf8');
+          callback(content);
+          /*if(/toptitle">退出<\/a>/ig.test(content)){
+           msg = '【' + self.qq + '】登陆成功,昵称为：' + self.logged_obj.login_nick;
+           console_logger.info(msg);
+           file_logger.info(msg);
+
+           if(self.callbacks && self.callbacks.success && typeof self.callbacks.success == 'function'){
+           self.callbacks.success(self);
+           }
+           }
+           else{
+           msg = '【' + self.qq + '】登陆可能失败, content:' + content;
+           console_logger.info(msg);
+           }*/
+
+        }
+        else{
+          /*msg = '【' + self.qq + '】登陆可能失败,status=' + status+ ', content:' + content;
+           console_logger.info(msg);
+           file_logger.info(msg);*/
+        }
+
+        //self.callbacks.complete(self);
+
+      });
+    });
+  },
+
+  // 读取合并后的邮件
+  read_conversation: function(mail, callback){
+
+    // https://set1.mail.qq.com/cgi-bin/readmail?folderid=1&folderkey=&t=readmail&mailid=ZC1117-SrzIEZx4jgjLpRZAq_uUU62&mode=pre&maxage=3600&base=11.8&ver=18579&sid=lmAmmhcnoyX4zH8p
+
+    var self = this;
+    var url = "https://set2.mail.qq.com/cgi-bin/readmail?" +
+      "folderid=1" +
+      "&folderkey=1" +
+      "&t=readmail_conversation" +
+      "&mailid=" + (mail.mail_id || '') +
+      "&mode=pre" +
+      "&maxage=600" +
+      "&base=12.43" +
+      "&ver=11862" +
+      "&sid=" + self.sid;
+    // C1T4D608B1B
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+
+    var temp_cookie = cookie_util.get_simple_cookie_str(self.cookies);
+    msg = self.qq + ', read_conversation';
     file_logger.info(msg);
 
     protocol.get({
@@ -1042,6 +1136,166 @@ var qqmail = {
       file_logger.info(msg);
 
     });
+  },
+
+  // 设置白名单
+  add_white_domain: function(domains, callback){
+    // post
+    // no-reply@qiyi.com
+
+    var self = this;
+    var post_obj = {
+      sid: self.sid,
+      act: 'addwhitedomain',
+      Fun: 'submit',
+      confirm: 0,
+      user: 'qiyi.com',
+      group: domains
+    };
+    /*var post_data = querystring.stringify({
+      product : 'club',
+      sign : 'ddddddddddddddd',
+      sender: '发送者的名字:超级管理员',
+      uids : ['ffwq@qq.com', 'ffqwf@www.com'],
+      msg : 'wwww'
+    });*/
+    var post_data = querystring.stringify(post_obj);
+    /*
+     sid:t7TLqNzCicooQEUT
+     act:addwhitedomain
+     Fun:submit
+     confirm:0
+     user:qiyi.com
+     group:godaddy.com
+     group:sohu.com
+     group:126.com
+     group:163.com
+     group:news.mail.taobao.com
+     group:member.mail.taobao.com
+     */
+
+    var url = "https://set2.mail.qq.com/cgi-bin/config_blackwhitelist?sid=" + self.sid;
+
+    msg = self.qq + ',';
+    file_logger.info(msg);
+
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+    var req = protocol.request({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      method: 'POST',
+      headers: {
+        'Host': self.getHost(url),
+        'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/48.0.2564.116 Safari/537.36',
+        'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language':'zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3',
+        //'Accept-Encoding':'gzip, deflate',
+        'Cookie': cookie_util.get_simple_cookie_str(self.cookies)
+      }
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"] || []);
+
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        content = iconv.decode(new Buffer(content,'binary'),'gbk');
+
+        if(status == 200){
+
+        }
+        else{
+
+        }
+        msg = '【' + self.qq + '】添加白名单的结果：status' + status + '返回:' + content;
+        /*console_logger.info(msg);
+        file_logger.info(msg);*/
+
+        callback();
+      });
+    });
+
+    req.write(post_data + "\n");
+    req.end();
+
+  },
+
+  // get_cur_domin
+  get_cur_white_domains: function(callback){
+// https://set2.mail.qq.com/cgi-bin/setting1?sid=3GmtVGwFdxj62mk-&fun=list&loc=frame_html,frame_html,,3
+
+    var self = this;
+    var url = "https://set2.mail.qq.com/cgi-bin/config_blackwhitelist?sid="+self.sid + "&Fun=whitelist&t=mail_spam_whitedomain";
+
+    console.log(self.sid);
+    var header_sent = {
+      "Host": self.getHost(url),
+      "Referer": "https://set2.mail.qq.com/cgi-bin/setting3?sid="+self.sid+"&fun=list",
+      "cookie": cookie_util.get_simple_cookie_str(self.cookies)
+    };
+
+    var content = '';
+    var protocol = self.getProtocol(url);
+    protocol.get({
+      host:self.getHost(url),
+      port:self.getPort(url),
+      path:self.getPath(url),
+      headers: header_sent
+    }, function(res){
+      res.setEncoding('binary');
+      var status = res.statusCode;
+      var headers = res.headers;
+
+      self.cookies = cookie_util.merge_cookie(self.cookies, headers["set-cookie"]);
+
+      res.on('data',function(chunk){
+        content += chunk;
+      });
+      res.on('end',function(){
+        content = iconv.decode(new Buffer(content,'binary'),'gbk');
+
+        /*console_logger.info(self.qq + ',' + content);
+        file_logger.info(self.qq + ',' + content);*/
+
+        var domain_arr = self.get_domains_from_html(content);
+        console.log(domain_arr);
+        callback(domain_arr);
+
+      });
+
+    }).on('error', function(e){
+      console_logger.error(self.qq + ', get_cur_white_domains ' + e);
+      file_logger.error(self.qq + e);
+    });
+
+  },
+  get_domains_from_html: function(html){
+    // var g_items = ["qiyi.com","godaddy.com","sohu.com","126.com","163.com","news.mail.taobao.com","member.mail.taobao.com",];
+    // var g_items = [];
+    var reg = /var g_items\s*=\s*\[([^\]]+)\];/;
+    var reg2 = /var g_items = \[\]/;
+
+    if(reg2.test(html)) return [];
+
+    reg.exec(html);
+    var m = RegExp.$1;
+    m = m.replace(/"/ig, "");
+    var arr = m.split(',');
+    var ret = [];
+    for(var i=0; i<arr.length; i++){
+      if(arr[i] != ''){
+        ret.push(arr[i]);
+      }
+    }
+    return ret;
   }
 
 };
